@@ -2,7 +2,6 @@
 
 set -euo pipefail
 
-# TODO: Ensure this is the correct GitHub homepage where releases can be downloaded for pixi.
 GH_REPO="https://github.com/prefix-dev/pixi"
 TOOL_NAME="pixi"
 TOOL_TEST="pixi --help"
@@ -14,7 +13,6 @@ fail() {
 
 curl_opts=(-fsSL)
 
-# NOTE: You might want to remove this if pixi is not hosted on GitHub releases.
 if [ -n "${GITHUB_API_TOKEN:-}" ]; then
 	curl_opts=("${curl_opts[@]}" -H "Authorization: token $GITHUB_API_TOKEN")
 fi
@@ -27,12 +25,10 @@ sort_versions() {
 list_github_tags() {
 	git ls-remote --tags --refs "$GH_REPO" |
 		grep -o 'refs/tags/.*' | cut -d/ -f3- |
-		sed 's/^v//' # NOTE: You might want to adapt this sed to remove non-version strings from tags
+		sed 's/^v//'
 }
 
 list_all_versions() {
-	# TODO: Adapt this. By default we simply list the tag names from GitHub releases.
-	# Change this function if pixi has other means of determining installable versions.
 	list_github_tags
 }
 
@@ -41,11 +37,25 @@ download_release() {
 	version="$1"
 	filename="$2"
 
-	# TODO: Adapt the release URL convention for pixi
-	url="$GH_REPO/archive/v${version}.tar.gz"
+	platform=$(uname -s)
+	arch=${PIXI_ARCH:-$(uname -m)}
+
+	if [[ $platform == "Darwin" ]]; then
+		platform="apple-darwin"
+	elif [[ $platform == "Linux" ]]; then
+		platform="unknown-linux-musl"
+	fi
+
+	if [[ $arch == "arm64" ]] || [[ $arch == "aarch64" ]]; then
+		arch="aarch64"
+	fi
+
+	url="$GH_REPO/releases/download/v${version}/$TOOL_NAME-$arch-$platform"
 
 	echo "* Downloading $TOOL_NAME release $version..."
 	curl "${curl_opts[@]}" -o "$filename" -C - "$url" || fail "Could not download $url"
+	# make file executable
+	chmod +x "$filename"
 }
 
 install_version() {
